@@ -7,6 +7,10 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		DB: D1Database;
+		SMTP_HOST: string;
+		SMTP_PORT: string;
+		SMTP_USERNAME: string;
+		SMTP_PASSWORD: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
