@@ -10,20 +10,17 @@ export class SendDemoEmail extends OpenAPIRoute {
   schema = {
     tags: ["Email"],
     summary: "Send EDUCENTRA demo request via Gmail SMTP",
-    requestBody: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            name: z.string(),
-            email: z.string().email(),
-            phone: z.string().optional(),
-            institution: z.string(),
-            role: z.string(),
-            message: z.string().optional(),
-          })
-        }
-      }
-    },
+
+    // ✅ MUST be a Zod object directly – NOT content/schema
+    requestBody: z.object({
+      name: z.string(),
+      email: z.string().email(),
+      phone: z.string().optional(),
+      institution: z.string(),
+      role: z.string(),
+      message: z.string().optional(),
+    }),
+
     responses: {
       "200": {
         description: "Email sent",
@@ -49,17 +46,15 @@ export class SendDemoEmail extends OpenAPIRoute {
 
   async handle(c: AppContext) {
     try {
-      // ⬅️ Now this will work
-      const data = await this.getValidatedData<typeof this.schema>();
-      const body = data.body;
+      // ✅ This now returns { body, params, query }
+      const { body } = await this.getValidatedData<typeof this.schema>();
 
       const { name, email, phone, institution, role, message } = body;
 
-      // CONNECT SMTP
       const mailer = await WorkerMailer.connect({
         host: c.env.SMTP_HOST,
         port: Number(c.env.SMTP_PORT),
-        secure: false,
+        secure: false,       // using STARTTLS on 587
         startTls: true,
         authType: "plain",
         credentials: {
