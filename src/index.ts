@@ -42,7 +42,7 @@ const openapi = fromHono(app, {
 
 // Register Tasks Sub router
 openapi.route("/tasks", tasksRouter);
-
+openapi.post("/email/demo", SendDemoEmail);
 // Register other endpoints
 openapi.post("/dummy/:slug", DummyEndpoint);
 
