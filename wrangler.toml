@@ -20,6 +20,7 @@ enabled = true
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = "587"
 SMTP_USERNAME = "franchmaverickk@gmail.com"
+SMTP_PASSWORD = "digj qdgh wruy xqak"
 SMTP_SECURE = "false"
 
 # D1 Database binding
