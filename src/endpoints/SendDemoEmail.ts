@@ -1,11 +1,8 @@
 import { OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
-
-// src/endpoints/SendDemoEmail.ts
-import { OpenAPIRoute } from "chanfana";
 import { z } from "zod";
-import type { Context } from "hono";
-import type { Env } from "../worker-configuration";
+import { WorkerMailer } from "worker-mailer";
+import type { Env } from "../worker-configuration"; // adjust path if needed
 
 type AppContext = Context<{ Bindings: Env }>;
 
@@ -13,14 +10,20 @@ export class SendDemoEmail extends OpenAPIRoute {
   schema = {
     tags: ["Email"],
     summary: "Send EDUCENTRA demo request via Gmail SMTP",
-    requestBody: z.object({
-      name: z.string(),
-      email: z.string().email(),
-      phone: z.string().optional(),
-      institution: z.string(),
-      role: z.string(),
-      message: z.string().optional(),
-    }),
+    requestBody: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            name: z.string(),
+            email: z.string().email(),
+            phone: z.string().optional(),
+            institution: z.string(),
+            role: z.string(),
+            message: z.string().optional(),
+          })
+        }
+      }
+    },
     responses: {
       "200": {
         description: "Email sent",
@@ -46,14 +49,17 @@ export class SendDemoEmail extends OpenAPIRoute {
 
   async handle(c: AppContext) {
     try {
-      // ⬅️ HERE: use `body`, not `requestBody`
-      const { body } = await this.getValidatedData<typeof this.schema>();
+      // ⬅️ Now this will work
+      const data = await this.getValidatedData<typeof this.schema>();
+      const body = data.body;
+
       const { name, email, phone, institution, role, message } = body;
 
+      // CONNECT SMTP
       const mailer = await WorkerMailer.connect({
         host: c.env.SMTP_HOST,
-        port: Number(c.env.SMTP_PORT || "587"),
-        secure: false,   // Gmail + 587 → STARTTLS
+        port: Number(c.env.SMTP_PORT),
+        secure: false,
         startTls: true,
         authType: "plain",
         credentials: {
@@ -82,14 +88,7 @@ export class SendDemoEmail extends OpenAPIRoute {
       return c.json({ success: true });
     } catch (err: any) {
       console.error("SendDemoEmail error:", err);
-      return c.json(
-        {
-          success: false,
-          error: err?.message || String(err),
-        },
-        500
-      );
+      return c.json({ success: false, error: err.message }, 500);
     }
   }
 }
-
