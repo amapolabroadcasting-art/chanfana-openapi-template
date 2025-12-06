@@ -46,13 +46,9 @@ export class SendDemoEmail extends OpenAPIRoute {
 
   async handle(c: AppContext) {
     try {
-      const { requestBody } = await this.getValidatedData<typeof this.schema>();
-      const { name, email, phone, institution, role, message } = requestBody;
-
-      // Quick sanity check of bindings
-      console.log("SMTP_HOST", c.env.SMTP_HOST);
-      console.log("SMTP_PORT", c.env.SMTP_PORT);
-      console.log("SMTP_USERNAME", c.env.SMTP_USERNAME);
+      // ⬅️ HERE: use `body`, not `requestBody`
+      const { body } = await this.getValidatedData<typeof this.schema>();
+      const { name, email, phone, institution, role, message } = body;
 
       const mailer = await WorkerMailer.connect({
         host: c.env.SMTP_HOST,
