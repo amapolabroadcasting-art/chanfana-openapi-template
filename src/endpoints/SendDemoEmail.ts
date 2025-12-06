@@ -1,4 +1,4 @@
-import { OpenAPIRoute } from "chanfana";
+import { OpenAPIRoute, contentJson } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
 import { WorkerMailer } from "worker-mailer";
@@ -11,15 +11,19 @@ export class SendDemoEmail extends OpenAPIRoute {
     tags: ["Email"],
     summary: "Send EDUCENTRA demo request via Gmail SMTP",
 
-    // ✅ MUST be a Zod object directly – NOT content/schema
-    requestBody: z.object({
-      name: z.string(),
-      email: z.string().email(),
-      phone: z.string().optional(),
-      institution: z.string(),
-      role: z.string(),
-      message: z.string().optional(),
-    }),
+    // ✅ chanfana expects `request.body`, not `requestBody`
+    request: {
+      body: contentJson(
+        z.object({
+          name: z.string(),
+          email: z.string().email(),
+          phone: z.string().optional(),
+          institution: z.string(),
+          role: z.string(),
+          message: z.string().optional(),
+        })
+      ),
+    },
 
     responses: {
       "200": {
@@ -46,7 +50,7 @@ export class SendDemoEmail extends OpenAPIRoute {
 
   async handle(c: AppContext) {
     try {
-      // ✅ This now returns { body, params, query }
+      // ✅ Now data.body is correctly typed to the Zod object above
       const { body } = await this.getValidatedData<typeof this.schema>();
 
       const { name, email, phone, institution, role, message } = body;
@@ -54,7 +58,7 @@ export class SendDemoEmail extends OpenAPIRoute {
       const mailer = await WorkerMailer.connect({
         host: c.env.SMTP_HOST,
         port: Number(c.env.SMTP_PORT),
-        secure: false,       // using STARTTLS on 587
+        secure: false,      // STARTTLS on 587
         startTls: true,
         authType: "plain",
         credentials: {
