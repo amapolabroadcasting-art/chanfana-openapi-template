@@ -1,7 +1,7 @@
 import { OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
-import { WorkerMailer } from "https://raw.githubusercontent.com/andrejewski/worker-mailer/main/mod.ts";
+import { WorkerMailer } from "worker-mailer";
 import type { Env } from "../worker-configuration"; // adjust path if needed
 
 export type AppContext = Context<{ Bindings: Env }>;
