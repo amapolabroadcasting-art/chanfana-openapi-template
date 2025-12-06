@@ -1,15 +1,18 @@
 import { OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
-import { z } from "zod";
-import { WorkerMailer } from "worker-mailer";
-import type { Env } from "../worker-configuration"; // adjust path if needed
 
-export type AppContext = Context<{ Bindings: Env }>;
+// src/endpoints/SendDemoEmail.ts
+import { OpenAPIRoute } from "chanfana";
+import { z } from "zod";
+import type { Context } from "hono";
+import type { Env } from "../worker-configuration";
+
+type AppContext = Context<{ Bindings: Env }>;
 
 export class SendDemoEmail extends OpenAPIRoute {
   schema = {
     tags: ["Email"],
-    summary: "Send EDUCENTRA demo request via SMTP",
+    summary: "Send EDUCENTRA demo request via Gmail SMTP",
     requestBody: z.object({
       name: z.string(),
       email: z.string().email(),
@@ -23,8 +26,17 @@ export class SendDemoEmail extends OpenAPIRoute {
         description: "Email sent",
         content: {
           "application/json": {
+            schema: z.object({ success: z.boolean() }),
+          },
+        },
+      },
+      "500": {
+        description: "Error",
+        content: {
+          "application/json": {
             schema: z.object({
               success: z.boolean(),
+              error: z.string(),
             }),
           },
         },
@@ -33,38 +45,55 @@ export class SendDemoEmail extends OpenAPIRoute {
   } as const;
 
   async handle(c: AppContext) {
-    const data = await this.getValidatedData<typeof this.schema>();
-    const { name, email, phone, institution, role, message } = data.requestBody;
+    try {
+      const { requestBody } = await this.getValidatedData<typeof this.schema>();
+      const { name, email, phone, institution, role, message } = requestBody;
 
-    const mailer = await WorkerMailer.connect({
-      host: c.env.SMTP_HOST,
-      port: Number(c.env.SMTP_PORT),
-      secure: false,     // or true if you want pure TLS
-      startTls: true,    // STARTTLS on 587
-      authType: "plain",
-      credentials: {
-        username: c.env.SMTP_USERNAME,
-        password: c.env.SMTP_PASSWORD,
-      },
-    });
+      // Quick sanity check of bindings
+      console.log("SMTP_HOST", c.env.SMTP_HOST);
+      console.log("SMTP_PORT", c.env.SMTP_PORT);
+      console.log("SMTP_USERNAME", c.env.SMTP_USERNAME);
 
-    const html = `
-      <h2>New Demo Request Received</h2>
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Phone:</strong> ${phone || "Not provided"}</p>
-      <p><strong>Institution:</strong> ${institution}</p>
-      <p><strong>Role:</strong> ${role}</p>
-      ${message ? `<p><strong>Message:</strong><br>${message}</p>` : ""}
-    `;
+      const mailer = await WorkerMailer.connect({
+        host: c.env.SMTP_HOST,
+        port: Number(c.env.SMTP_PORT || "587"),
+        secure: false,   // Gmail + 587 → STARTTLS
+        startTls: true,
+        authType: "plain",
+        credentials: {
+          username: c.env.SMTP_USERNAME,
+          password: c.env.SMTP_PASSWORD,
+        },
+      });
 
-    await mailer.send({
-      from: { name: "EDUCENTRA Demo Requests", email: c.env.SMTP_USERNAME },
-      to: { email: "partnerwithus@educentra.ai" },
-      subject: `New Demo Request from ${name}`,
-      html,
-    });
+      const html = `
+        <h2>New Demo Request Received</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone || "Not provided"}</p>
+        <p><strong>Institution:</strong> ${institution}</p>
+        <p><strong>Role:</strong> ${role}</p>
+        ${message ? `<p><strong>Message:</strong><br>${message}</p>` : ""}
+      `;
 
-    return c.json({ success: true });
+      await mailer.send({
+        from: { name: "EDUCENTRA Demo Requests", email: c.env.SMTP_USERNAME },
+        to: { email: "partnerwithus@educentra.ai" },
+        subject: `New Demo Request from ${name}`,
+        html,
+      });
+
+      return c.json({ success: true });
+    } catch (err: any) {
+      console.error("SendDemoEmail error:", err);
+      return c.json(
+        {
+          success: false,
+          error: err?.message || String(err),
+        },
+        500
+      );
+    }
   }
 }
+
